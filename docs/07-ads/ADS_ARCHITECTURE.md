@@ -68,6 +68,125 @@ Mid-roll ad plays
 Movie resumes
 ```
 
+## Anti-mod APK ad protection
+
+It is not possible to guarantee 100% protection against modified APKs because the Android app runs on the user's device. The correct strategy is to avoid trusting only client-side ad logic.
+
+Tio-Flix should use backend-controlled playback access.
+
+```text
+App requests movie playback
+↓
+Backend verifies user session
+↓
+Backend verifies app/device integrity
+↓
+Backend sends required ad configuration
+↓
+App plays required pre-roll ad
+↓
+App reports ad_completed event
+↓
+Backend issues short-lived playback token or signed video URL
+↓
+Player starts movie
+↓
+At mid-roll checkpoint, backend requires another ad_completed event
+↓
+Backend allows playback continuation
+```
+
+## Rules for stronger ad enforcement
+
+1. Do not keep permanent video URLs in the app.
+2. Use short-lived signed playback URLs or playback tokens.
+3. Verify required `ad_completed` events on the backend.
+4. Store ad events in the database for analytics and abuse detection.
+5. Use Play Integrity API to detect modified apps, suspicious devices, or tampered installs.
+6. Never put Bunny/Mux private API keys in the Android app.
+7. Never put Supabase service role key in the Android app.
+8. Do not rely only on client-side checks for ad enforcement.
+
+## Backend-controlled playback token model
+
+Recommended flow:
+
+```text
+POST /playback/start
+- user_id
+- movie_id
+- integrity_token
+
+Backend response:
+- required_ad_breaks
+- playback_session_id
+- pre_roll_required
+```
+
+After pre-roll:
+
+```text
+POST /ads/event
+- playback_session_id
+- movie_id
+- event_type = ad_completed
+- break_seconds = 0
+```
+
+Then:
+
+```text
+POST /playback/token
+- playback_session_id
+- movie_id
+
+Backend response:
+- short_lived_video_url
+- expires_at
+```
+
+## Mid-roll enforcement
+
+For mid-roll, the app should pause playback at the configured break.
+
+```text
+Movie reaches 600 seconds
+↓
+App pauses movie
+↓
+App plays mid-roll ad
+↓
+App reports ad_completed for 600 seconds
+↓
+Backend validates event
+↓
+Playback continues
+```
+
+If the app is modified to skip the ad, backend analytics should detect missing required ad events.
+
+## Play Integrity API
+
+Use Play Integrity API before issuing sensitive playback tokens.
+
+Backend should check:
+
+```text
+App package integrity
+App signing certificate integrity
+Device integrity
+Account/session validity
+```
+
+If integrity fails, backend can:
+
+```text
+Block playback
+Show limited playback
+Require app update
+Log suspicious session
+```
+
 ## Ad events
 
 Track important ad events:
@@ -84,13 +203,16 @@ Save events in `ad_events` table.
 
 ## Failure handling
 
-If ad fails:
+If ad fails because of network/provider issue:
 
 ```text
-Do not block the movie forever
 Log ad_error
-Resume movie playback
+Apply backend policy
+Allow retry or resume depending on policy
+Do not create infinite loading loop
 ```
+
+For production, backend policy should decide whether to allow playback after repeated genuine ad errors.
 
 ## User experience rules
 
