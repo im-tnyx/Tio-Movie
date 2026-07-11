@@ -20,12 +20,12 @@ object SupabaseModule {
     @Singleton
     fun provideSupabaseClient(): SupabaseClient {
         check(AppConfig.isSupabaseConfigured) {
-            "Supabase URL and publishable/anon key are not configured."
+            "Supabase URL and publishable key are not configured."
         }
 
         return createSupabaseClient(
             supabaseUrl = AppConfig.supabaseUrl,
-            supabaseKey = AppConfig.supabaseAnonKey
+            supabaseKey = AppConfig.supabasePublishableKey
         ) {
             install(Auth)
             install(Postgrest)
