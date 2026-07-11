@@ -29,11 +29,8 @@ android {
         versionName = "0.1.0"
 
         buildConfigField("String", "SUPABASE_URL", quotedProperty("SUPABASE_URL"))
-        buildConfigField(
-            "String",
-            "SUPABASE_PUBLISHABLE_KEY",
-            quotedProperty("SUPABASE_PUBLISHABLE_KEY")
-        )
+        buildConfigField("String", "SUPABASE_PUBLISHABLE_KEY", quotedProperty("SUPABASE_PUBLISHABLE_KEY"))
+        buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", quotedProperty("GOOGLE_WEB_CLIENT_ID"))
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables.useSupportLibrary = true
@@ -42,10 +39,7 @@ android {
     buildTypes {
         release {
             isMinifyEnabled = true
-            proguardFiles(
-                getDefaultProguardFile("proguard-android-optimize.txt"),
-                "proguard-rules.pro"
-            )
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }
 
@@ -61,9 +55,7 @@ android {
         buildConfig = true
     }
 
-    packaging {
-        resources.excludes += "/META-INF/{AL2.0,LGPL2.1}"
-    }
+    packaging { resources.excludes += "/META-INF/{AL2.0,LGPL2.1}" }
 }
 
 dependencies {
@@ -94,6 +86,9 @@ dependencies {
     implementation(libs.media3.ui)
     implementation(libs.media3.exoplayer.ima)
     implementation(libs.play.integrity)
+    implementation(libs.androidx.credentials)
+    implementation(libs.androidx.credentials.play.services.auth)
+    implementation(libs.googleid)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
