@@ -1,2 +1,7 @@
 # Tio-Flix app-specific R8/ProGuard rules.
-# Add SDK-specific keep rules only when required by build or runtime behavior.
+
+# Required by Android Credential Manager Play Services integration.
+-if class androidx.credentials.CredentialManager
+-keep class androidx.credentials.playservices.** {
+    *;
+}
