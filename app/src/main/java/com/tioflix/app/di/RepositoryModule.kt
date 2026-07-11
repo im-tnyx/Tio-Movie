@@ -1,7 +1,9 @@
 package com.tioflix.app.di
 
 import com.tioflix.app.data.auth.SupabaseAuthRepository
+import com.tioflix.app.data.profile.SupabaseProfileRepository
 import com.tioflix.app.domain.repository.AuthRepository
+import com.tioflix.app.domain.repository.ProfileRepository
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -16,4 +18,10 @@ abstract class RepositoryModule {
     abstract fun bindAuthRepository(
         implementation: SupabaseAuthRepository
     ): AuthRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindProfileRepository(
+        implementation: SupabaseProfileRepository
+    ): ProfileRepository
 }
