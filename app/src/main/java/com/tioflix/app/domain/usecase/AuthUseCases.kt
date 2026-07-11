@@ -27,3 +27,9 @@ class HasSessionUseCase @Inject constructor(
 ) {
     operator fun invoke(): Boolean = repository.hasSession()
 }
+
+class SignOutUseCase @Inject constructor(
+    private val repository: AuthRepository
+) {
+    suspend operator fun invoke(): Result<Unit> = repository.signOut()
+}
