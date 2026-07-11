@@ -1,8 +1,11 @@
 package com.tioflix.app.data.catalog
 
+import com.tioflix.app.domain.model.ContentCategory
+import com.tioflix.app.domain.model.ContentItem
+import com.tioflix.app.domain.model.ContentType
 import com.tioflix.app.domain.model.HomeCatalog
-import com.tioflix.app.domain.model.Movie
-import com.tioflix.app.domain.model.MovieCategory
+import com.tioflix.app.domain.model.SeriesEpisode
+import com.tioflix.app.domain.model.SeriesSeason
 import com.tioflix.app.domain.repository.CatalogRepository
 import io.github.jan.supabase.postgrest.Postgrest
 import io.github.jan.supabase.postgrest.query.Columns
@@ -23,16 +26,18 @@ class SupabaseCatalogRepository @Inject constructor(
                     slug,
                     name,
                     sort_order,
-                    movie_categories (
+                    content_categories (
                         sort_order,
-                        movies (
+                        content (
                             id,
+                            content_type,
                             title,
                             description,
                             poster_url,
                             backdrop_url,
                             release_year,
                             duration_minutes,
+                            total_seasons,
                             maturity_rating,
                             language,
                             is_featured
@@ -44,33 +49,87 @@ class SupabaseCatalogRepository @Inject constructor(
             .decodeList<CategoryDto>()
             .sortedBy { it.sortOrder }
             .map { category ->
-                MovieCategory(
+                ContentCategory(
                     id = category.id,
                     slug = category.slug,
                     name = category.name,
                     sortOrder = category.sortOrder,
-                    movies = category.movieCategories
+                    items = category.contentCategories
                         .sortedBy { it.sortOrder }
-                        .map { it.movies.toDomain() }
+                        .map { it.content.toDomain() }
                 )
             }
 
         val featured = categories
             .asSequence()
-            .flatMap { it.movies.asSequence() }
+            .flatMap { it.items.asSequence() }
             .firstOrNull { it.isFeatured }
 
         HomeCatalog(featured = featured, categories = categories)
     }
 
-    private fun MovieDto.toDomain() = Movie(
+    override suspend fun getSeriesSeasons(contentId: String): Result<List<SeriesSeason>> = runCatching {
+        postgrest["series_seasons"]
+            .select(
+                columns = Columns.raw(
+                    """
+                    id,
+                    content_id,
+                    season_number,
+                    title,
+                    description,
+                    poster_url,
+                    series_episodes (
+                        id,
+                        season_id,
+                        episode_number,
+                        title,
+                        description,
+                        thumbnail_url,
+                        duration_minutes
+                    )
+                    """.trimIndent()
+                )
+            ) {
+                eq("content_id", contentId)
+            }
+            .decodeList<SeriesSeasonDto>()
+            .sortedBy { it.seasonNumber }
+            .map { season ->
+                SeriesSeason(
+                    id = season.id,
+                    contentId = season.contentId,
+                    seasonNumber = season.seasonNumber,
+                    title = season.title,
+                    description = season.description,
+                    posterUrl = season.posterUrl,
+                    episodes = season.episodes
+                        .sortedBy { it.episodeNumber }
+                        .map { episode ->
+                            SeriesEpisode(
+                                id = episode.id,
+                                seasonId = episode.seasonId,
+                                episodeNumber = episode.episodeNumber,
+                                title = episode.title,
+                                description = episode.description,
+                                thumbnailUrl = episode.thumbnailUrl,
+                                durationMinutes = episode.durationMinutes
+                            )
+                        }
+                )
+            }
+    }
+
+    private fun ContentDto.toDomain() = ContentItem(
         id = id,
+        type = ContentType.valueOf(contentType),
         title = title,
         description = description,
         posterUrl = posterUrl,
         backdropUrl = backdropUrl,
         releaseYear = releaseYear,
         durationMinutes = durationMinutes,
+        totalSeasons = totalSeasons,
         maturityRating = maturityRating,
         language = language,
         isFeatured = isFeatured
