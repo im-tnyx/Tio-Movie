@@ -1,18 +1,17 @@
 package com.tioflix.app.navigation
 
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.tioflix.app.ui.auth.forgot.ForgotPasswordRoute
 import com.tioflix.app.ui.auth.login.LoginRoute
+import com.tioflix.app.ui.auth.signup.SignupRoute
 import com.tioflix.app.ui.home.HomeRoute
+import com.tioflix.app.ui.splash.SplashRoute
 
 private object Destinations {
+    const val Splash = "splash"
     const val Login = "auth/login"
     const val Signup = "auth/signup"
     const val ForgotPassword = "auth/forgot-password"
@@ -23,42 +22,42 @@ private object Destinations {
 fun TioFlixNavHost() {
     val navController = rememberNavController()
 
+    fun navigateClearingAuth(destination: String) {
+        navController.navigate(destination) {
+            popUpTo(Destinations.Splash) { inclusive = true }
+            launchSingleTop = true
+        }
+    }
+
     NavHost(
         navController = navController,
-        startDestination = Destinations.Login
+        startDestination = Destinations.Splash
     ) {
+        composable(Destinations.Splash) {
+            SplashRoute(
+                onAuthenticated = { navigateClearingAuth(Destinations.Home) },
+                onLoggedOut = { navigateClearingAuth(Destinations.Login) }
+            )
+        }
+
         composable(Destinations.Login) {
             LoginRoute(
-                onLoginSuccess = {
-                    navController.navigate(Destinations.Home) {
-                        popUpTo(Destinations.Login) { inclusive = true }
-                    }
-                },
+                onLoginSuccess = { navigateClearingAuth(Destinations.Home) },
                 onSignupClick = { navController.navigate(Destinations.Signup) },
                 onForgotPasswordClick = { navController.navigate(Destinations.ForgotPassword) }
             )
         }
 
         composable(Destinations.Signup) {
-            PlaceholderScreen("Signup screen foundation")
+            SignupRoute(onCompleted = { navController.popBackStack() })
         }
 
         composable(Destinations.ForgotPassword) {
-            PlaceholderScreen("Forgot password foundation")
+            ForgotPasswordRoute()
         }
 
         composable(Destinations.Home) {
             HomeRoute()
         }
-    }
-}
-
-@Composable
-private fun PlaceholderScreen(message: String) {
-    Box(
-        modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center
-    ) {
-        Text(message)
     }
 }
