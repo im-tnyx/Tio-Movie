@@ -24,7 +24,7 @@ fun TioFlixNavHost() {
 
     fun navigateClearingAuth(destination: String) {
         navController.navigate(destination) {
-            popUpTo(Destinations.Splash) { inclusive = true }
+            popUpTo(navController.graph.id) { inclusive = true }
             launchSingleTop = true
         }
     }
@@ -57,7 +57,7 @@ fun TioFlixNavHost() {
         }
 
         composable(Destinations.Home) {
-            HomeRoute()
+            HomeRoute(onLoggedOut = { navigateClearingAuth(Destinations.Login) })
         }
     }
 }
