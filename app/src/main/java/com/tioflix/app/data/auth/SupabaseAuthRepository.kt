@@ -4,7 +4,9 @@ import com.tioflix.app.core.config.AppConfig
 import com.tioflix.app.domain.repository.AuthRepository
 import dagger.Lazy
 import io.github.jan.supabase.auth.Auth
+import io.github.jan.supabase.auth.providers.Google
 import io.github.jan.supabase.auth.providers.builtin.Email
+import io.github.jan.supabase.auth.providers.builtin.IDToken
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -18,6 +20,21 @@ class SupabaseAuthRepository @Inject constructor(
         auth.get().signInWith(Email) {
             this.email = email
             this.password = password
+        }
+    }
+
+    override suspend fun signInWithGoogleIdToken(
+        idToken: String,
+        nonce: String
+    ): Result<Unit> = runCatching {
+        requireConfigured()
+        check(AppConfig.isGoogleSignInConfigured) {
+            "Google Web Client ID is not configured."
+        }
+        auth.get().signInWith(IDToken) {
+            this.idToken = idToken
+            provider = Google
+            this.nonce = nonce
         }
     }
 
