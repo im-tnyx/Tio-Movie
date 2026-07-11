@@ -4,8 +4,8 @@ import com.tioflix.app.BuildConfig
 
 object AppConfig {
     val supabaseUrl: String get() = BuildConfig.SUPABASE_URL
-    val supabaseAnonKey: String get() = BuildConfig.SUPABASE_ANON_KEY
+    val supabasePublishableKey: String get() = BuildConfig.SUPABASE_PUBLISHABLE_KEY
 
     val isSupabaseConfigured: Boolean
-        get() = supabaseUrl.isNotBlank() && supabaseAnonKey.isNotBlank()
+        get() = supabaseUrl.isNotBlank() && supabasePublishableKey.isNotBlank()
 }
