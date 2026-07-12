@@ -10,6 +10,7 @@ This directory contains database migrations and Edge Functions for Tio-Flix.
 0003_unified_content.sql
 0004_protect_playback_keys.sql
 0005_playback_sessions.sql
+0006_watch_history.sql
 ```
 
 They create:
@@ -23,6 +24,7 @@ They create:
 - Published-content RLS policies
 - Protected server-only playback keys
 - Playback session audit and rate-limit data
+- User-owned watch history and continue-watching progress
 
 ## Catalog model
 
@@ -96,6 +98,17 @@ query params    = exp, uid, sid, sig
 
 Your CDN gateway or origin must validate this exact contract before serving the HLS manifest and segments. Replace the signer adapter when using a provider-specific token format such as Bunny Stream or Mux.
 
+## Watch history
+
+The player saves progress every 15 seconds and again when the player screen is released. `watch_history` stores one latest row per user and content item. Series rows also keep the last watched episode.
+
+```text
+position < 90%  → Continue Watching
+position >= 90% → completed
+```
+
+The Android Home screen reads unfinished rows ordered by `last_watched_at` and displays a progress bar.
+
 ## Security rules
 
 - Never commit the Supabase secret/service-role key.
@@ -104,6 +117,7 @@ Your CDN gateway or origin must validate this exact contract before serving the 
 - Only published catalog rows are readable by authenticated clients.
 - Catalog administration belongs in a trusted backend or admin tool.
 - Sensitive playback URLs must be short-lived and issued by the Edge Function.
+- Watch history rows are restricted to `auth.uid()` ownership.
 - Run database lint/advisors and test the function before production deployment.
 
 ## Profiles flow
