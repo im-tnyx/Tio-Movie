@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -24,6 +23,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -40,11 +40,13 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.tioflix.app.domain.model.ContentCategory
 import com.tioflix.app.domain.model.ContentItem
 import com.tioflix.app.domain.model.ContentType
+import com.tioflix.app.domain.model.ContinueWatchingItem
 
 @Composable
 fun HomeScreen(
@@ -88,6 +90,17 @@ fun HomeScreen(
                         }
                     }
 
+                    if (state.continueWatching.isNotEmpty()) {
+                        item {
+                            ContinueWatchingRow(
+                                items = state.continueWatching,
+                                horizontalPadding = horizontalPadding,
+                                posterWidth = posterWidth,
+                                onItemClick = { onAction(HomeAction.ContentClicked(it.content.id)) }
+                            )
+                        }
+                    }
+
                     items(state.catalog.categories, key = { it.id }) { category ->
                         if (category.items.isNotEmpty()) {
                             ContentRow(
@@ -107,7 +120,7 @@ fun HomeScreen(
 }
 
 @Composable
-private fun Header(title: String, onLogout: () -> Unit, horizontalPadding: androidx.compose.ui.unit.Dp) {
+private fun Header(title: String, onLogout: () -> Unit, horizontalPadding: Dp) {
     Row(
         modifier = Modifier.fillMaxWidth().padding(horizontal = horizontalPadding, vertical = 16.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -121,7 +134,7 @@ private fun Header(title: String, onLogout: () -> Unit, horizontalPadding: andro
 @Composable
 private fun HeroBanner(
     item: ContentItem,
-    horizontalPadding: androidx.compose.ui.unit.Dp,
+    horizontalPadding: Dp,
     isTvLayout: Boolean,
     onClick: () -> Unit
 ) {
@@ -145,12 +158,53 @@ private fun HeroBanner(
             modifier = Modifier.align(Alignment.BottomStart).padding(if (isTvLayout) 32.dp else 20.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Text(item.title, style = if (isTvLayout) MaterialTheme.typography.displaySmall else MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+            Text(
+                item.title,
+                style = if (isTvLayout) MaterialTheme.typography.displaySmall else MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Bold
+            )
             Text(contentMeta(item), style = MaterialTheme.typography.labelLarge)
             item.description?.let {
-                Text(it, maxLines = if (isTvLayout) 3 else 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.fillMaxWidth(0.75f))
+                Text(
+                    it,
+                    maxLines = if (isTvLayout) 3 else 2,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.fillMaxWidth(0.75f)
+                )
             }
-            Button(onClick = onClick) { Text(if (item.type == ContentType.SERIES) "View episodes" else "Play") }
+            Button(onClick = onClick) {
+                Text(if (item.type == ContentType.SERIES) "View episodes" else "Play")
+            }
+        }
+    }
+}
+
+@Composable
+private fun ContinueWatchingRow(
+    items: List<ContinueWatchingItem>,
+    horizontalPadding: Dp,
+    posterWidth: Dp,
+    onItemClick: (ContinueWatchingItem) -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text(
+            "Continue Watching",
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.padding(horizontal = horizontalPadding)
+        )
+        LazyRow(
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = horizontalPadding),
+            horizontalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            items(items, key = { it.content.id }) { item ->
+                PosterCard(
+                    item = item.content,
+                    width = posterWidth,
+                    progress = item.progressFraction,
+                    onClick = { onItemClick(item) }
+                )
+            }
         }
     }
 }
@@ -158,8 +212,8 @@ private fun HeroBanner(
 @Composable
 private fun ContentRow(
     category: ContentCategory,
-    horizontalPadding: androidx.compose.ui.unit.Dp,
-    posterWidth: androidx.compose.ui.unit.Dp,
+    horizontalPadding: Dp,
+    posterWidth: Dp,
     onItemClick: (ContentItem) -> Unit
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -181,7 +235,12 @@ private fun ContentRow(
 }
 
 @Composable
-private fun PosterCard(item: ContentItem, width: androidx.compose.ui.unit.Dp, onClick: () -> Unit) {
+private fun PosterCard(
+    item: ContentItem,
+    width: Dp,
+    progress: Float? = null,
+    onClick: () -> Unit
+) {
     var focused by remember { mutableStateOf(false) }
     val scale by animateFloatAsState(if (focused) 1.07f else 1f, label = "posterFocus")
 
@@ -197,22 +256,48 @@ private fun PosterCard(item: ContentItem, width: androidx.compose.ui.unit.Dp, on
             shape = RoundedCornerShape(14.dp),
             elevation = CardDefaults.cardElevation(defaultElevation = if (focused) 12.dp else 2.dp)
         ) {
-            Box {
-                AsyncImage(
-                    model = item.posterUrl ?: item.backdropUrl,
-                    contentDescription = item.title,
-                    modifier = Modifier.fillMaxWidth().height(width * 1.5f),
-                    contentScale = ContentScale.Crop
-                )
-                Text(
-                    text = if (item.type == ContentType.SERIES) "SERIES" else "MOVIE",
-                    style = MaterialTheme.typography.labelSmall,
-                    modifier = Modifier.align(Alignment.TopStart).padding(8.dp).background(MaterialTheme.colorScheme.surface.copy(alpha = 0.85f), RoundedCornerShape(6.dp)).padding(horizontal = 7.dp, vertical = 4.dp)
-                )
+            Column {
+                Box {
+                    AsyncImage(
+                        model = item.posterUrl ?: item.backdropUrl,
+                        contentDescription = item.title,
+                        modifier = Modifier.fillMaxWidth().height(width * 1.5f),
+                        contentScale = ContentScale.Crop
+                    )
+                    Text(
+                        text = if (item.type == ContentType.SERIES) "SERIES" else "MOVIE",
+                        style = MaterialTheme.typography.labelSmall,
+                        modifier = Modifier
+                            .align(Alignment.TopStart)
+                            .padding(8.dp)
+                            .background(
+                                MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
+                                RoundedCornerShape(6.dp)
+                            )
+                            .padding(horizontal = 7.dp, vertical = 4.dp)
+                    )
+                }
+                progress?.let {
+                    LinearProgressIndicator(
+                        progress = { it.coerceIn(0f, 1f) },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
             }
         }
-        Text(item.title, maxLines = 1, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.Medium, modifier = Modifier.padding(top = 8.dp))
-        Text(contentMeta(item), maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall)
+        Text(
+            item.title,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            fontWeight = FontWeight.Medium,
+            modifier = Modifier.padding(top = 8.dp)
+        )
+        Text(
+            contentMeta(item),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            style = MaterialTheme.typography.bodySmall
+        )
     }
 }
 
@@ -226,11 +311,17 @@ private fun contentMeta(item: ContentItem): String = buildList {
 }.joinToString(" • ")
 
 @Composable
-private fun LoadingState() = Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+private fun LoadingState() = Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+    CircularProgressIndicator()
+}
 
 @Composable
 private fun ErrorState(message: String, onRetry: () -> Unit) {
-    Column(Modifier.fillMaxSize().padding(24.dp), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
+    Column(
+        Modifier.fillMaxSize().padding(24.dp),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
         Text(message, style = MaterialTheme.typography.bodyLarge)
         Button(onClick = onRetry, modifier = Modifier.padding(top = 16.dp)) { Text("Retry") }
     }
