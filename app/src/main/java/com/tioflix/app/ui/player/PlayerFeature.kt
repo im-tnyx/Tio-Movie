@@ -28,9 +28,12 @@ import androidx.lifecycle.viewModelScope
 import androidx.media3.common.MediaItem
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
+import com.tioflix.app.domain.model.WatchProgress
 import com.tioflix.app.domain.repository.PlaybackRepository
+import com.tioflix.app.domain.repository.WatchHistoryRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
@@ -49,6 +52,10 @@ data class PlayerUiState(
 sealed interface PlayerAction {
     data object RetryClicked : PlayerAction
     data object BackClicked : PlayerAction
+    data class ProgressChanged(
+        val positionMs: Long,
+        val durationMs: Long
+    ) : PlayerAction
 }
 
 sealed interface PlayerEffect {
@@ -58,7 +65,8 @@ sealed interface PlayerEffect {
 @HiltViewModel
 class PlayerViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
-    private val playbackRepository: PlaybackRepository
+    private val playbackRepository: PlaybackRepository,
+    private val watchHistoryRepository: WatchHistoryRepository
 ) : ViewModel() {
     private val contentId: String = checkNotNull(savedStateHandle["contentId"])
     private val episodeId: String? = savedStateHandle.get<String>("episodeId")
@@ -78,6 +86,10 @@ class PlayerViewModel @Inject constructor(
             PlayerAction.BackClicked -> viewModelScope.launch {
                 _effects.send(PlayerEffect.NavigateBack)
             }
+            is PlayerAction.ProgressChanged -> saveProgress(
+                positionMs = action.positionMs,
+                durationMs = action.durationMs
+            )
         }
     }
 
@@ -85,11 +97,16 @@ class PlayerViewModel @Inject constructor(
         _uiState.update { it.copy(isLoading = true, errorMessage = null, playbackUrl = null) }
         playbackRepository.createPlaybackSession(contentId, episodeId)
             .onSuccess { session ->
+                val localProgress = watchHistoryRepository.getProgress(contentId).getOrNull()
+                val resumePosition = maxOf(
+                    session.startPositionMs,
+                    localProgress?.takeUnless { it.completed }?.positionMs ?: 0L
+                )
                 _uiState.value = PlayerUiState(
                     isLoading = false,
                     title = session.title,
                     playbackUrl = session.playbackUrl,
-                    startPositionMs = session.startPositionMs
+                    startPositionMs = resumePosition
                 )
             }
             .onFailure { error ->
@@ -100,6 +117,22 @@ class PlayerViewModel @Inject constructor(
                     )
                 }
             }
+    }
+
+    private fun saveProgress(positionMs: Long, durationMs: Long) {
+        if (positionMs < 0L || durationMs <= 0L) return
+        val completed = positionMs >= (durationMs * 0.9).toLong()
+        viewModelScope.launch {
+            watchHistoryRepository.saveProgress(
+                WatchProgress(
+                    contentId = contentId,
+                    episodeId = episodeId,
+                    positionMs = if (completed) durationMs else positionMs,
+                    durationMs = durationMs,
+                    completed = completed
+                )
+            )
+        }
     }
 }
 
@@ -147,7 +180,10 @@ fun PlayerScreen(
             }
             state.playbackUrl != null -> Media3PlayerHost(
                 playbackUrl = state.playbackUrl,
-                startPositionMs = state.startPositionMs
+                startPositionMs = state.startPositionMs,
+                onProgress = { position, duration ->
+                    onAction(PlayerAction.ProgressChanged(position, duration))
+                }
             )
         }
     }
@@ -156,7 +192,8 @@ fun PlayerScreen(
 @Composable
 private fun Media3PlayerHost(
     playbackUrl: String,
-    startPositionMs: Long
+    startPositionMs: Long,
+    onProgress: (positionMs: Long, durationMs: Long) -> Unit
 ) {
     val context = LocalContext.current
     val player = remember(playbackUrl) {
@@ -168,8 +205,18 @@ private fun Media3PlayerHost(
         }
     }
 
+    LaunchedEffect(player) {
+        while (true) {
+            delay(15_000)
+            onProgress(player.currentPosition, player.duration)
+        }
+    }
+
     DisposableEffect(player) {
-        onDispose { player.release() }
+        onDispose {
+            onProgress(player.currentPosition, player.duration)
+            player.release()
+        }
     }
 
     AndroidView(
