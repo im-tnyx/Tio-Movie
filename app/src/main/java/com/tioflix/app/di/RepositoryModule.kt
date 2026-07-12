@@ -2,12 +2,14 @@ package com.tioflix.app.di
 
 import com.tioflix.app.data.auth.SupabaseAuthRepository
 import com.tioflix.app.data.catalog.SupabaseCatalogRepository
+import com.tioflix.app.data.history.SupabaseWatchHistoryRepository
 import com.tioflix.app.data.playback.BackendPlaybackRepository
 import com.tioflix.app.data.profile.SupabaseProfileRepository
 import com.tioflix.app.domain.repository.AuthRepository
 import com.tioflix.app.domain.repository.CatalogRepository
 import com.tioflix.app.domain.repository.PlaybackRepository
 import com.tioflix.app.domain.repository.ProfileRepository
+import com.tioflix.app.domain.repository.WatchHistoryRepository
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -40,4 +42,10 @@ abstract class RepositoryModule {
     abstract fun bindPlaybackRepository(
         implementation: BackendPlaybackRepository
     ): PlaybackRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindWatchHistoryRepository(
+        implementation: SupabaseWatchHistoryRepository
+    ): WatchHistoryRepository
 }
