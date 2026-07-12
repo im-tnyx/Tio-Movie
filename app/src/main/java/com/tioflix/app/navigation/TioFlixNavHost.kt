@@ -1,12 +1,20 @@
 package com.tioflix.app.navigation
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.tioflix.app.ui.auth.forgot.ForgotPasswordRoute
 import com.tioflix.app.ui.auth.login.LoginRoute
 import com.tioflix.app.ui.auth.signup.SignupRoute
+import com.tioflix.app.ui.detail.ContentDetailRoute
 import com.tioflix.app.ui.home.HomeRoute
 import com.tioflix.app.ui.splash.SplashRoute
 
@@ -16,6 +24,12 @@ private object Destinations {
     const val Signup = "auth/signup"
     const val ForgotPassword = "auth/forgot-password"
     const val Home = "home"
+    const val ContentDetail = "content/{contentId}"
+    const val Player = "player/{contentId}?episodeId={episodeId}"
+
+    fun contentDetail(contentId: String) = "content/$contentId"
+    fun player(contentId: String, episodeId: String?) =
+        "player/$contentId?episodeId=${episodeId.orEmpty()}"
 }
 
 @Composable
@@ -57,7 +71,40 @@ fun TioFlixNavHost() {
         }
 
         composable(Destinations.Home) {
-            HomeRoute(onLoggedOut = { navigateClearingAuth(Destinations.Login) })
+            HomeRoute(
+                onLoggedOut = { navigateClearingAuth(Destinations.Login) },
+                onContentClick = { contentId ->
+                    navController.navigate(Destinations.contentDetail(contentId))
+                }
+            )
+        }
+
+        composable(
+            route = Destinations.ContentDetail,
+            arguments = listOf(navArgument("contentId") { type = NavType.StringType })
+        ) {
+            ContentDetailRoute(
+                onBack = { navController.popBackStack() },
+                onOpenPlayer = { contentId, episodeId ->
+                    navController.navigate(Destinations.player(contentId, episodeId))
+                }
+            )
+        }
+
+        composable(
+            route = Destinations.Player,
+            arguments = listOf(
+                navArgument("contentId") { type = NavType.StringType },
+                navArgument("episodeId") {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                }
+            )
+        ) {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text("Player integration is the next milestone.")
+            }
         }
     }
 }
