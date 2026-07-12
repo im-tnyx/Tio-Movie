@@ -2,7 +2,9 @@ package com.tioflix.app.ui.home
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.tioflix.app.domain.model.ContentCategory
 import com.tioflix.app.domain.repository.CatalogRepository
+import com.tioflix.app.domain.repository.FavoritesRepository
 import com.tioflix.app.domain.repository.WatchHistoryRepository
 import com.tioflix.app.domain.usecase.SignOutUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -19,7 +21,8 @@ import javax.inject.Inject
 class HomeViewModel @Inject constructor(
     private val signOut: SignOutUseCase,
     private val catalogRepository: CatalogRepository,
-    private val watchHistoryRepository: WatchHistoryRepository
+    private val watchHistoryRepository: WatchHistoryRepository,
+    private val favoritesRepository: FavoritesRepository
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(HomeUiState())
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
@@ -43,13 +46,28 @@ class HomeViewModel @Inject constructor(
         _uiState.update { it.copy(isLoading = true, errorMessage = null) }
         val catalogResult = catalogRepository.getHomeCatalog()
         val continueWatching = watchHistoryRepository.getContinueWatching().getOrDefault(emptyList())
+        val favorites = favoritesRepository.getFavorites().getOrDefault(emptyList())
 
         catalogResult
             .onSuccess { catalog ->
+                val categories = if (favorites.isNotEmpty()) {
+                    listOf(
+                        ContentCategory(
+                            id = -1L,
+                            slug = "my-list",
+                            name = "My List",
+                            sortOrder = -1,
+                            items = favorites
+                        )
+                    ) + catalog.categories
+                } else {
+                    catalog.categories
+                }
+
                 _uiState.update {
                     it.copy(
                         isLoading = false,
-                        catalog = catalog,
+                        catalog = catalog.copy(categories = categories),
                         continueWatching = continueWatching
                     )
                 }
