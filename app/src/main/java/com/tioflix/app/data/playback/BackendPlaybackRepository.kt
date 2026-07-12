@@ -49,7 +49,7 @@ class BackendPlaybackRepository @Inject constructor(
             ?: error("Your session has expired. Sign in again.")
 
         val response = httpClient.post(
-            "${AppConfig.playbackApiBaseUrl}/v1/playback/sessions"
+            "${AppConfig.playbackApiBaseUrl}/playback-session"
         ) {
             bearerAuth(accessToken)
             contentType(ContentType.Application.Json)
