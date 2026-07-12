@@ -31,7 +31,9 @@ class HomeViewModel @Inject constructor(
         when (action) {
             HomeAction.RetryClicked -> loadCatalog()
             HomeAction.LogoutClicked -> logout()
-            is HomeAction.ContentClicked -> Unit
+            is HomeAction.ContentClicked -> viewModelScope.launch {
+                _effects.send(HomeEffect.NavigateContentDetail(action.contentId))
+            }
         }
     }
 
