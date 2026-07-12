@@ -13,4 +13,8 @@
 .env
 .env.*
 secrets.properties
+<<<<<<< Updated upstream
 backup/
+=======
+backup/
+>>>>>>> Stashed changes
