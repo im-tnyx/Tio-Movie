@@ -1,0 +1,2 @@
+[functions.playback-session]
+verify_jwt = false
