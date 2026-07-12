@@ -1,11 +1,6 @@
 package com.tioflix.app.navigation
 
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -16,6 +11,7 @@ import com.tioflix.app.ui.auth.login.LoginRoute
 import com.tioflix.app.ui.auth.signup.SignupRoute
 import com.tioflix.app.ui.detail.ContentDetailRoute
 import com.tioflix.app.ui.home.HomeRoute
+import com.tioflix.app.ui.player.PlayerRoute
 import com.tioflix.app.ui.splash.SplashRoute
 
 private object Destinations {
@@ -102,9 +98,7 @@ fun TioFlixNavHost() {
                 }
             )
         ) {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text("Player integration is the next milestone.")
-            }
+            PlayerRoute(onBack = { navController.popBackStack() })
         }
     }
 }
