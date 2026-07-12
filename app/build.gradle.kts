@@ -31,6 +31,7 @@ android {
         buildConfigField("String", "SUPABASE_URL", quotedProperty("SUPABASE_URL"))
         buildConfigField("String", "SUPABASE_PUBLISHABLE_KEY", quotedProperty("SUPABASE_PUBLISHABLE_KEY"))
         buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", quotedProperty("GOOGLE_WEB_CLIENT_ID"))
+        buildConfigField("String", "PLAYBACK_API_BASE_URL", quotedProperty("PLAYBACK_API_BASE_URL"))
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables.useSupportLibrary = true
@@ -81,6 +82,8 @@ dependencies {
     implementation(libs.supabase.postgrest)
     implementation(libs.ktor.client.core)
     implementation(libs.ktor.client.okhttp)
+    implementation(libs.ktor.client.content.negotiation)
+    implementation(libs.ktor.serialization.kotlinx.json)
     implementation(libs.media3.exoplayer)
     implementation(libs.media3.exoplayer.hls)
     implementation(libs.media3.ui)
