@@ -25,6 +25,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -49,24 +50,16 @@ import com.tioflix.app.domain.model.ContentType
 import com.tioflix.app.domain.model.ContinueWatchingItem
 
 @Composable
-fun HomeScreen(
-    state: HomeUiState,
-    onAction: (HomeAction) -> Unit,
-    modifier: Modifier = Modifier
-) {
+fun HomeScreen(state: HomeUiState, onAction: (HomeAction) -> Unit, modifier: Modifier = Modifier) {
     Surface(modifier = modifier.fillMaxSize()) {
         when {
             state.isLoading -> LoadingState()
-            state.errorMessage != null -> ErrorState(
-                message = state.errorMessage,
-                onRetry = { onAction(HomeAction.RetryClicked) }
-            )
+            state.errorMessage != null -> ErrorState(state.errorMessage) { onAction(HomeAction.RetryClicked) }
             state.catalog == null || state.catalog.categories.all { it.items.isEmpty() } -> EmptyState()
             else -> BoxWithConstraints(Modifier.fillMaxSize()) {
                 val isTvLayout = maxWidth >= 720.dp
                 val horizontalPadding = if (isTvLayout) 48.dp else 20.dp
                 val posterWidth = if (isTvLayout) 180.dp else 132.dp
-
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
                     verticalArrangement = Arrangement.spacedBy(if (isTvLayout) 28.dp else 20.dp)
@@ -74,44 +67,32 @@ fun HomeScreen(
                     item {
                         Header(
                             title = state.title,
+                            onSearch = { onAction(HomeAction.SearchClicked) },
                             onLogout = { onAction(HomeAction.LogoutClicked) },
                             horizontalPadding = horizontalPadding
                         )
                     }
-
                     state.catalog.featured?.let { featured ->
                         item {
-                            HeroBanner(
-                                item = featured,
-                                horizontalPadding = horizontalPadding,
-                                isTvLayout = isTvLayout,
-                                onClick = { onAction(HomeAction.ContentClicked(featured.id)) }
-                            )
+                            HeroBanner(featured, horizontalPadding, isTvLayout) {
+                                onAction(HomeAction.ContentClicked(featured.id))
+                            }
                         }
                     }
-
                     if (state.continueWatching.isNotEmpty()) {
                         item {
-                            ContinueWatchingRow(
-                                items = state.continueWatching,
-                                horizontalPadding = horizontalPadding,
-                                posterWidth = posterWidth,
-                                onItemClick = { onAction(HomeAction.ContentClicked(it.content.id)) }
-                            )
+                            ContinueWatchingRow(state.continueWatching, horizontalPadding, posterWidth) {
+                                onAction(HomeAction.ContentClicked(it.content.id))
+                            }
                         }
                     }
-
                     items(state.catalog.categories, key = { it.id }) { category ->
                         if (category.items.isNotEmpty()) {
-                            ContentRow(
-                                category = category,
-                                horizontalPadding = horizontalPadding,
-                                posterWidth = posterWidth,
-                                onItemClick = { onAction(HomeAction.ContentClicked(it.id)) }
-                            )
+                            ContentRow(category, horizontalPadding, posterWidth) {
+                                onAction(HomeAction.ContentClicked(it.id))
+                            }
                         }
                     }
-
                     item { Spacer(Modifier.height(24.dp)) }
                 }
             }
@@ -120,184 +101,87 @@ fun HomeScreen(
 }
 
 @Composable
-private fun Header(title: String, onLogout: () -> Unit, horizontalPadding: Dp) {
+private fun Header(title: String, onSearch: () -> Unit, onLogout: () -> Unit, horizontalPadding: Dp) {
     Row(
         modifier = Modifier.fillMaxWidth().padding(horizontal = horizontalPadding, vertical = 16.dp),
-        verticalAlignment = Alignment.CenterVertically
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Text(title, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
         Spacer(Modifier.weight(1f))
+        OutlinedButton(onClick = onSearch) { Text("Search") }
         Button(onClick = onLogout) { Text("Logout") }
     }
 }
 
 @Composable
-private fun HeroBanner(
-    item: ContentItem,
-    horizontalPadding: Dp,
-    isTvLayout: Boolean,
-    onClick: () -> Unit
-) {
+private fun HeroBanner(item: ContentItem, horizontalPadding: Dp, isTvLayout: Boolean, onClick: () -> Unit) {
     Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = horizontalPadding)
-            .height(if (isTvLayout) 360.dp else 230.dp)
-            .clip(RoundedCornerShape(20.dp))
-            .clickable(onClick = onClick)
-            .focusable()
+        modifier = Modifier.fillMaxWidth().padding(horizontal = horizontalPadding)
+            .height(if (isTvLayout) 360.dp else 230.dp).clip(RoundedCornerShape(20.dp))
+            .clickable(onClick = onClick).focusable()
     ) {
-        AsyncImage(
-            model = item.backdropUrl ?: item.posterUrl,
-            contentDescription = item.title,
-            modifier = Modifier.fillMaxSize(),
-            contentScale = ContentScale.Crop
-        )
+        AsyncImage(item.backdropUrl ?: item.posterUrl, item.title, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
         Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.48f)))
         Column(
             modifier = Modifier.align(Alignment.BottomStart).padding(if (isTvLayout) 32.dp else 20.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Text(
-                item.title,
-                style = if (isTvLayout) MaterialTheme.typography.displaySmall else MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold
-            )
+            Text(item.title, style = if (isTvLayout) MaterialTheme.typography.displaySmall else MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
             Text(contentMeta(item), style = MaterialTheme.typography.labelLarge)
-            item.description?.let {
-                Text(
-                    it,
-                    maxLines = if (isTvLayout) 3 else 2,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.fillMaxWidth(0.75f)
-                )
-            }
-            Button(onClick = onClick) {
-                Text(if (item.type == ContentType.SERIES) "View episodes" else "Play")
-            }
+            item.description?.let { Text(it, maxLines = if (isTvLayout) 3 else 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.fillMaxWidth(0.75f)) }
+            Button(onClick = onClick) { Text(if (item.type == ContentType.SERIES) "View episodes" else "Play") }
         }
     }
 }
 
 @Composable
-private fun ContinueWatchingRow(
-    items: List<ContinueWatchingItem>,
-    horizontalPadding: Dp,
-    posterWidth: Dp,
-    onItemClick: (ContinueWatchingItem) -> Unit
-) {
+private fun ContinueWatchingRow(items: List<ContinueWatchingItem>, horizontalPadding: Dp, posterWidth: Dp, onItemClick: (ContinueWatchingItem) -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text(
-            "Continue Watching",
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.SemiBold,
-            modifier = Modifier.padding(horizontal = horizontalPadding)
-        )
-        LazyRow(
-            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = horizontalPadding),
-            horizontalArrangement = Arrangement.spacedBy(14.dp)
-        ) {
+        Text("Continue Watching", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(horizontal = horizontalPadding))
+        LazyRow(contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = horizontalPadding), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
             items(items, key = { it.content.id }) { item ->
-                PosterCard(
-                    item = item.content,
-                    width = posterWidth,
-                    progress = item.progressFraction,
-                    onClick = { onItemClick(item) }
-                )
+                PosterCard(item.content, posterWidth, item.progressFraction) { onItemClick(item) }
             }
         }
     }
 }
 
 @Composable
-private fun ContentRow(
-    category: ContentCategory,
-    horizontalPadding: Dp,
-    posterWidth: Dp,
-    onItemClick: (ContentItem) -> Unit
-) {
+private fun ContentRow(category: ContentCategory, horizontalPadding: Dp, posterWidth: Dp, onItemClick: (ContentItem) -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text(
-            category.name,
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.SemiBold,
-            modifier = Modifier.padding(horizontal = horizontalPadding)
-        )
-        LazyRow(
-            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = horizontalPadding),
-            horizontalArrangement = Arrangement.spacedBy(14.dp)
-        ) {
-            items(category.items, key = { it.id }) { item ->
-                PosterCard(item = item, width = posterWidth, onClick = { onItemClick(item) })
-            }
+        Text(category.name, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(horizontal = horizontalPadding))
+        LazyRow(contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = horizontalPadding), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+            items(category.items, key = { it.id }) { item -> PosterCard(item, posterWidth) { onItemClick(item) } }
         }
     }
 }
 
 @Composable
-private fun PosterCard(
-    item: ContentItem,
-    width: Dp,
-    progress: Float? = null,
-    onClick: () -> Unit
-) {
+private fun PosterCard(item: ContentItem, width: Dp, progress: Float? = null, onClick: () -> Unit) {
     var focused by remember { mutableStateOf(false) }
     val scale by animateFloatAsState(if (focused) 1.07f else 1f, label = "posterFocus")
-
     Column(
-        modifier = Modifier
-            .width(width)
-            .scale(scale)
-            .onFocusChanged { focused = it.isFocused }
-            .focusable()
-            .clickable(onClick = onClick)
+        modifier = Modifier.width(width).scale(scale).onFocusChanged { focused = it.isFocused }
+            .focusable().clickable(onClick = onClick)
     ) {
-        Card(
-            shape = RoundedCornerShape(14.dp),
-            elevation = CardDefaults.cardElevation(defaultElevation = if (focused) 12.dp else 2.dp)
-        ) {
+        Card(shape = RoundedCornerShape(14.dp), elevation = CardDefaults.cardElevation(defaultElevation = if (focused) 12.dp else 2.dp)) {
             Column {
                 Box {
-                    AsyncImage(
-                        model = item.posterUrl ?: item.backdropUrl,
-                        contentDescription = item.title,
-                        modifier = Modifier.fillMaxWidth().height(width * 1.5f),
-                        contentScale = ContentScale.Crop
-                    )
+                    AsyncImage(item.posterUrl ?: item.backdropUrl, item.title, Modifier.fillMaxWidth().height(width * 1.5f), contentScale = ContentScale.Crop)
                     Text(
-                        text = if (item.type == ContentType.SERIES) "SERIES" else "MOVIE",
+                        if (item.type == ContentType.SERIES) "SERIES" else "MOVIE",
                         style = MaterialTheme.typography.labelSmall,
-                        modifier = Modifier
-                            .align(Alignment.TopStart)
-                            .padding(8.dp)
-                            .background(
-                                MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
-                                RoundedCornerShape(6.dp)
-                            )
+                        modifier = Modifier.align(Alignment.TopStart).padding(8.dp)
+                            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.85f), RoundedCornerShape(6.dp))
                             .padding(horizontal = 7.dp, vertical = 4.dp)
                     )
                 }
-                progress?.let {
-                    LinearProgressIndicator(
-                        progress = { it.coerceIn(0f, 1f) },
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
+                progress?.let { LinearProgressIndicator(progress = { it.coerceIn(0f, 1f) }, modifier = Modifier.fillMaxWidth()) }
             }
         }
-        Text(
-            item.title,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            fontWeight = FontWeight.Medium,
-            modifier = Modifier.padding(top = 8.dp)
-        )
-        Text(
-            contentMeta(item),
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            style = MaterialTheme.typography.bodySmall
-        )
+        Text(item.title, maxLines = 1, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.Medium, modifier = Modifier.padding(top = 8.dp))
+        Text(contentMeta(item), maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall)
     }
 }
 
@@ -310,24 +194,8 @@ private fun contentMeta(item: ContentItem): String = buildList {
     }
 }.joinToString(" • ")
 
-@Composable
-private fun LoadingState() = Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-    CircularProgressIndicator()
+@Composable private fun LoadingState() = Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+@Composable private fun ErrorState(message: String, onRetry: () -> Unit) = Column(Modifier.fillMaxSize().padding(24.dp), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
+    Text(message); Button(onClick = onRetry, modifier = Modifier.padding(top = 16.dp)) { Text("Retry") }
 }
-
-@Composable
-private fun ErrorState(message: String, onRetry: () -> Unit) {
-    Column(
-        Modifier.fillMaxSize().padding(24.dp),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Text(message, style = MaterialTheme.typography.bodyLarge)
-        Button(onClick = onRetry, modifier = Modifier.padding(top = 16.dp)) { Text("Retry") }
-    }
-}
-
-@Composable
-private fun EmptyState() = Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-    Text("No published movies or series yet.", style = MaterialTheme.typography.bodyLarge)
-}
+@Composable private fun EmptyState() = Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text("No published movies or series yet.") }
